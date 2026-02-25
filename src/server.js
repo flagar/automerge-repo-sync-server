@@ -83,7 +83,7 @@ export class Server {
       res.send('hostname: ' + hostname + ' (IP: ' + ip_address + ')');
     });
 
-    app.post("/active_users", express.json(), (req, res) => {
+    /*app.post("/active_users", express.json(), (req, res) => {
       const user = req.body;
       if (user && user.id) {
         addActiveUser(user);
@@ -106,7 +106,7 @@ export class Server {
     app.get("/active_users", (req, res) => {
       const activeUsers = getActiveUsers();
       res.status(200).json(activeUsers);
-    });
+    });*/
 
     this.#server = app.listen(PORT, () => {
       console.log(`Listening on port ${PORT}`)
@@ -118,11 +118,79 @@ export class Server {
       console.log(`Storage ID: ${storageId}`)
     })
 
+    this.hpews = new WebSocketServer({ noServer: true });
+
     this.#server.on("upgrade", (request, socket, head) => {
-      this.#socket.handleUpgrade(request, socket, head, (socket) => {
-        this.#socket.emit("connection", socket, request)
-      })
-    })
+      const { url } = request;
+      if (url === "/automerge") {
+        this.#socket.handleUpgrade(request, socket, head, (socket) => {
+          this.#socket.emit("connection", socket, request);
+        });
+      } else if (url === "/ws") {
+        this.hpews.handleUpgrade(request, socket, head, (socket) => {
+          this.hpews.emit("connection", socket, request);
+        });
+      }
+    });
+
+    this.hpews.on("connection", (ws) => {
+      console.log('Client connected to HPE WebSocket server');
+      ws.send(JSON.stringify({ context: 'welcome', data: 'Welcome to the HPE WebSocket server!' }));
+      //let active_users = getActiveUsers();
+      //ws.send(JSON.stringify({ context: 'active_users', data: active_users }));
+
+      ws.addEventListener('message', (event) => {
+        let msg;
+        const raw_msg = event.data;
+        console.log('Received message from client:', raw_msg);
+        try {
+          msg = JSON.parse(raw_msg);
+        } catch (e) {
+          console.error('Error parsing message:', e);
+          console.error('JSON parsing error for message:', raw_msg);
+        }
+        if (msg) {
+          let msg_to_broadcast;
+          if (msg.context == 'active_users') {
+            let active_users_data;
+            if (msg.type == 'add') {
+              active_users_data = addActiveUser(msg.data);
+            } else if (msg.type == 'remove') {
+              active_users_data = removeActiveUser(msg.data.id);
+            }
+            if (active_users_data) {
+              msg_to_broadcast = {
+                context: 'active_users',
+                data: active_users_data
+              };
+            }
+          }
+          if (msg_to_broadcast) {
+            console.log('Broadcasting message to clients: ', msg_to_broadcast);
+            //console.log(this.hpews.clients);
+            // Broadcast the message to all other connected clients
+            let i = 0;
+            this.hpews.clients.forEach((client) => {
+              //console.log('Checking client for broadcast: ', client);
+              if (client.readyState === 1) { // 1 means OPEN
+                console.log('Sending message to client ' + (i++));
+                client.send(JSON.stringify(msg_to_broadcast));
+              }
+            });
+          }
+        }
+      });
+
+      ws.addEventListener('close', () => {
+        console.log('Client disconnected from HPE WebSocket server');
+      });
+
+      ws.addEventListener('error', (error) => {
+        console.error('WebSocket error:', error);
+      });
+    });
+
+
   }
 
   async ready() {
