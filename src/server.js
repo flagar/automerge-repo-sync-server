@@ -6,6 +6,17 @@ import { Repo } from "@automerge/automerge-repo"
 import { NodeWSServerAdapter } from "@automerge/automerge-repo-network-websocket"
 import { NodeFSStorageAdapter } from "@automerge/automerge-repo-storage-nodefs"
 import os from "os"
+import { getActiveUsers, addActiveUser, removeActiveUser } from "./active_users.js"
+import cors from 'cors';
+
+// Configura CORS
+/*const corsOptions = {
+  origin: ['*'], //'http://localhost:3000', 'https://tuodominio.com'], // Aggiungi i tuoi domini
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+  optionsSuccessStatus: 200
+};*/
 
 export class Server {
   /** @type WebSocketServer */
@@ -36,7 +47,14 @@ export class Server {
     const PORT =
       process.env.PORT !== undefined ? parseInt(process.env.PORT) : 3030
     const app = express()
-    app.use(express.static("public"))
+    app.use(express.static("public"));
+    //app.use(cors(corsOptions));
+    app.use(cors()); // Allow all origins for simplicity
+    // Referrer-Policy middleware
+    app.use((req, res, next) => {
+      res.setHeader('Referrer-Policy', 'no-referrer-when-downgrade');
+      next();
+    });
 
     const config = {
       network: [new NodeWSServerAdapter(this.#socket)],
@@ -51,7 +69,44 @@ export class Server {
 
     app.get("/", (req, res) => {
       res.send(`👍 @automerge/automerge-repo-sync-server is running`)
-    })
+    });
+
+    app.get("/hostname", async (req, res) => {
+      // get public ip address of the server using a curl to ipinfo.io
+      let ip_address = '';
+      try {
+        ip_address = (await fetch('https://ipinfo.io/ip').then(r => r.text())).trim();
+      } catch (err) {
+        console.error('Error getting public IP address:', err);
+      }
+      //console.log(`Received request for hostname, responding with: ${hostname} (IP: ${ip_address})`);
+      res.send('hostname: ' + hostname + ' (IP: ' + ip_address + ')');
+    });
+
+    app.post("/active_users", express.json(), (req, res) => {
+      const user = req.body;
+      if (user && user.id) {
+        addActiveUser(user);
+        res.status(200).json({ message: "User added to active users list" });
+      } else {
+        res.status(400).json({ message: "Invalid user data" });
+      }
+    });
+
+    app.delete("/active_users/:id", (req, res) => {
+      const userId = req.params.id;
+      if (userId) {
+        removeActiveUser(userId);
+        res.status(200).json({ message: "User removed from active users list" });
+      } else {
+        res.status(400).json({ message: "Invalid user ID" });
+      }
+    });
+
+    app.get("/active_users", (req, res) => {
+      const activeUsers = getActiveUsers();
+      res.status(200).json(activeUsers);
+    });
 
     this.#server = app.listen(PORT, () => {
       console.log(`Listening on port ${PORT}`)
