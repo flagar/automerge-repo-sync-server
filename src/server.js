@@ -3,7 +3,7 @@ import fs from "fs"
 import express from "express"
 import { WebSocketServer } from "ws"
 import { Repo } from "@automerge/automerge-repo"
-import { NodeWSServerAdapter } from "@automerge/automerge-repo-network-websocket"
+import { WebSocketServerAdapter } from "@automerge/automerge-repo-network-websocket"
 import { NodeFSStorageAdapter } from "@automerge/automerge-repo-storage-nodefs"
 import os from "os"
 import { getActiveUsers, addActiveUser, removeActiveUser } from "./active_users.js"
@@ -57,7 +57,7 @@ export class Server {
     });
 
     const config = {
-      network: [new NodeWSServerAdapter(this.#socket)],
+      network: [new WebSocketServerAdapter(this.#socket, 60000)],
       storage: new NodeFSStorageAdapter(dir),
       /** @ts-ignore @type {(import("@automerge/automerge-repo").PeerId)}  */
       peerId: `storage-server-${hostname}`,
@@ -112,6 +112,10 @@ export class Server {
       console.log(`Listening on port ${PORT}`)
       this.#isReady = true
       this.#readyResolvers.forEach((resolve) => resolve(true))
+    })
+
+    this.#repo.storageId().then((storageId) => {
+      console.log(`Storage ID: ${storageId}`)
     })
 
     this.#server.on("upgrade", (request, socket, head) => {
