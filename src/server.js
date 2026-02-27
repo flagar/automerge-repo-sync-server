@@ -6,7 +6,8 @@ import { Repo } from "@automerge/automerge-repo"
 import { WebSocketServerAdapter } from "@automerge/automerge-repo-network-websocket"
 import { NodeFSStorageAdapter } from "@automerge/automerge-repo-storage-nodefs"
 import os from "os"
-import { getActiveUsers, addActiveUser, removeActiveUser } from "./active_users.js"
+import { handle as activeUsersHandle } from "./active_users.js"
+import { handle as locksHandle, getLocks } from "./locks.js"
 import cors from 'cors';
 
 // Configura CORS
@@ -133,15 +134,17 @@ export class Server {
       }
     });
 
-    this.hpews.on("connection", (ws) => {
+    this.hpews.on("connection", /** @param {import('ws').WebSocket} ws */(ws) => {
       console.log('Client connected to HPE WebSocket server');
       ws.send(JSON.stringify({ context: 'welcome', data: 'Welcome to the HPE WebSocket server!' }));
       //let active_users = getActiveUsers();
       //ws.send(JSON.stringify({ context: 'active_users', data: active_users }));
+      let locks = getLocks();
+      ws.send(JSON.stringify({ context: 'locks', data: locks }));
 
       ws.addEventListener('message', (event) => {
         let msg;
-        const raw_msg = event.data;
+        const raw_msg = String(event.data);
         console.log('Received message from client:', raw_msg);
         try {
           msg = JSON.parse(raw_msg);
@@ -152,18 +155,9 @@ export class Server {
         if (msg) {
           let msg_to_broadcast;
           if (msg.context == 'active_users') {
-            let active_users_data;
-            if (msg.type == 'add') {
-              active_users_data = addActiveUser(msg.data);
-            } else if (msg.type == 'remove') {
-              active_users_data = removeActiveUser(msg.data.id);
-            }
-            if (active_users_data) {
-              msg_to_broadcast = {
-                context: 'active_users',
-                data: active_users_data
-              };
-            }
+            msg_to_broadcast = activeUsersHandle(msg);
+          } else if (msg.context == 'locks') {
+            msg_to_broadcast = locksHandle(msg);
           }
           if (msg_to_broadcast) {
             console.log('Broadcasting message to clients: ', msg_to_broadcast);
@@ -179,32 +173,31 @@ export class Server {
             });
           }
         }
-      });
 
-      ws.addEventListener('close', () => {
-        console.log('Client disconnected from HPE WebSocket server');
-      });
+        ws.addEventListener('close', () => {
+          console.log('Client disconnected from HPE WebSocket server');
+        });
 
-      ws.addEventListener('error', (error) => {
-        console.error('WebSocket error:', error);
+        ws.addEventListener('error', (error) => {
+          console.error('WebSocket error:', error);
+        });
       });
     });
 
+    this.ready = () => {
+      if (this.#isReady) {
+        return true
+      }
 
-  }
-
-  async ready() {
-    if (this.#isReady) {
-      return true
+      return new Promise((resolve) => {
+        this.#readyResolvers.push(resolve)
+      })
     }
 
-    return new Promise((resolve) => {
-      this.#readyResolvers.push(resolve)
-    })
-  }
-
-  close() {
-    this.#socket.close()
-    this.#server.close()
+    this.close = () => {
+      this.#socket.close()
+      this.#server.close()
+    }
   }
 }
+

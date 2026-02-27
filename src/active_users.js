@@ -63,3 +63,22 @@ export function clearActiveUsers() {
     fs.writeFileSync(ACTIVE_USERS_FILE, JSON.stringify([], null, 2));
     return [];
 }
+
+export function handle(msg) {
+    let msg_to_broadcast;
+    if (msg && msg.context == 'active_users') {
+        let active_users_data;
+        if (msg.type == 'add') {
+            active_users_data = addActiveUser(msg.data);
+        } else if (msg.type == 'remove') {
+            active_users_data = removeActiveUser(msg.data.id);
+        }
+        if (active_users_data) {
+            msg_to_broadcast = {
+                context: 'active_users',
+                data: active_users_data
+            };
+        }
+    }
+    return msg_to_broadcast;
+}
