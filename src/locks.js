@@ -38,8 +38,10 @@ export function addSectionLock(msg) {
         let lock_index = locks_data.sections.findIndex(l => l.edition_id == msg.data.edition_id && l.section_id == msg.data.section_id);
         if (lock_index >= 0) {
             if (locks_data.sections[lock_index].user.id == msg.data.user.id) {
-                locks_data.sections[lock_index] = lock;
-                actually_add = true;
+                if (!locks_data.sections[lock_index].manual) { // update only if not manual lock
+                    locks_data.sections[lock_index] = lock;
+                    actually_add = true;
+                }
             } else {
                 console.warn('Section ' + msg.data.section_id + ' is already locked by another user:', locks_data.sections[lock_index].user);
             }
