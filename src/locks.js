@@ -89,7 +89,7 @@ export function removeEditionSectionLocks(msg) {
         }
         let initial_sections_length = locks_data.sections.length;
         locks_data.sections = locks_data.sections.filter(lock => {
-            return !(lock.user.id == msg.data.user.id && lock.edition_id == msg.data.edition_id);
+            return !(lock.user.id == msg.data.user.id && lock.edition_id == msg.data.edition_id && lock.manual === false);
         });
         if (initial_sections_length != locks_data.sections.length) {
             actually_remove = true;
