@@ -18,9 +18,9 @@ export function getActiveUsers() {
 
 function purgeInactiveUsers(users_data) {
     if (Array.isArray(users_data) && users_data.length > 0) {
-        // purge not active users (no ping for more than 30 seconds)
+        // purge not active users (no ping for more than 60 seconds)
         const now = new Date();
-        const max_inactive_interval = 30 * 1000; // 30 seconds
+        const max_inactive_interval = 60 * 1000; // 60 seconds
         users_data = users_data.filter(user => {
             return (now - new Date(user.last_ping)) < max_inactive_interval;
         });
