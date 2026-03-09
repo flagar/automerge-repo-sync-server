@@ -8,6 +8,7 @@ import { NodeFSStorageAdapter } from "@automerge/automerge-repo-storage-nodefs"
 import os from "os"
 import { handle as activeUsersHandle } from "./active_users.js"
 import { handle as locksHandle, getLocks } from "./locks.js"
+import { handle as sectionsHandle } from "./sections.js"
 import cors from 'cors';
 
 // Configura CORS
@@ -158,6 +159,8 @@ export class Server {
             msg_to_broadcast = activeUsersHandle(msg);
           } else if (msg.context == 'locks') {
             msg_to_broadcast = locksHandle(msg);
+          } else if (msg.context == 'sections') {
+            msg_to_broadcast = sectionsHandle(msg);
           }
           if (msg_to_broadcast) {
             console.log('Broadcasting message to clients: ', msg_to_broadcast);
