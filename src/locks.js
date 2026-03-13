@@ -29,15 +29,16 @@ export function addSectionLock(msg) {
     console.log('Adding section lock for user:', msg);
     let actually_add = false;
     let locks_data = getLocks();
-    if (msg && msg.data && msg.data.edition_id && msg.data.section_id && msg.data.user && msg.data.user.id) {
+    if (msg && msg.data && msg.data.edition_id && msg.data.section_id && msg.client && msg.client.user && msg.client.user.id) {
         let lock = JSON.parse(JSON.stringify(msg.data));
+        lock.user = JSON.parse(JSON.stringify(msg.client.user));
         lock.timestamp = msg.timestamp;
         if (typeof locks_data.sections != 'object') {
             locks_data.sections = [];
         }
         let lock_index = locks_data.sections.findIndex(l => l.edition_id == msg.data.edition_id && l.section_id == msg.data.section_id);
         if (lock_index >= 0) {
-            if (locks_data.sections[lock_index].user.id == msg.data.user.id) {
+            if (locks_data.sections[lock_index].user.id == msg.client.user.id) {
                 if (!locks_data.sections[lock_index].manual) { // update only if not manual lock
                     locks_data.sections[lock_index] = lock;
                     actually_add = true;
@@ -62,13 +63,13 @@ export function removeSectionLock(msg) {
     console.log('Removing section lock for user:', msg);
     let actually_remove = false;
     let locks_data = getLocks();
-    if (msg && msg.data && msg.data.edition_id && msg.data.section_id && msg.data.user && msg.data.user.id) {
+    if (msg && msg.data && msg.data.edition_id && msg.data.section_id && msg.client && msg.client.user && msg.client.user.id) {
         if (typeof locks_data.sections != 'object') {
             locks_data.sections = [];
         }
         let initial_sections_length = locks_data.sections.length;
         locks_data.sections = locks_data.sections.filter(lock => {
-            return !(lock.user.id == msg.data.user.id && lock.edition_id == msg.data.edition_id && lock.section_id == msg.data.section_id && (!lock.manual || msg.data.manual === true));
+            return !(lock.user.id == msg.client.user.id && lock.edition_id == msg.data.edition_id && lock.section_id == msg.data.section_id && (!lock.manual || msg.data.manual === true));
         });
         if (initial_sections_length != locks_data.sections.length) {
             actually_remove = true;
@@ -81,19 +82,72 @@ export function removeSectionLock(msg) {
     return getLocks();
 }
 
-export function removeEditionSectionLocks(msg) {
-    console.log('Removing edition section locks for user:', msg);
+export function removeEditionSectionLocks(msg, manual = false) {
+    console.log('Removing edition section locks for user:', msg, (manual ? '(manual)' : ''));
     let actually_remove = false;
     let locks_data = getLocks();
-    if (msg && msg.data && msg.data.edition_id && msg.data.user && msg.data.user.id) {
+    if (msg && msg.data && msg.data.edition_id && msg.client && msg.client.user && msg.client.user.id) {
         if (typeof locks_data.sections != 'object') {
             locks_data.sections = [];
         }
         let initial_sections_length = locks_data.sections.length;
         locks_data.sections = locks_data.sections.filter(lock => {
-            return !(lock.user.id == msg.data.user.id && lock.edition_id == msg.data.edition_id && lock.manual === false);
+            return !(lock.user.id == msg.client.user.id && lock.edition_id == msg.data.edition_id && lock.manual === manual);
         });
         if (initial_sections_length != locks_data.sections.length) {
+            actually_remove = true;
+        }
+    }
+    if (actually_remove) {
+        console.log('Writing locks data to file:', locks_data);
+        fs.writeFileSync(LOCKS_FILE, JSON.stringify(locks_data, null, 2));
+    }
+    return getLocks();
+}
+
+export function removeEditionLocks(msg, manual = true) {
+    console.log('Removing all edition-level locks for all the editions for the user:', msg, (manual ? '(manual)' : ''));
+    let actually_remove = false;
+    let locks_data = getLocks();
+    if (msg && msg.client && msg.client.user && msg.client.user.id) {
+        if (typeof locks_data.editions != 'object') {
+            locks_data.editions = [];
+        }
+        let initial_editions_length = locks_data.editions.length;
+        locks_data.editions = locks_data.editions.filter(lock => {
+            return !(lock.user.id == msg.client.user.id);
+        });
+        if (initial_editions_length != locks_data.editions.length) {
+            actually_remove = true;
+        }
+    }
+    if (actually_remove) {
+        console.log('Writing locks data to file:', locks_data);
+        fs.writeFileSync(LOCKS_FILE, JSON.stringify(locks_data, null, 2));
+    }
+    return getLocks();
+}
+
+export function removeAllUserLocks(msg, manual = true) {
+    console.log('Removing all edition and section locks for user:', msg, (manual ? '(manual)' : ''));
+    let actually_remove = false;
+    let locks_data = getLocks();
+    if (msg && msg.client && msg.client.user && msg.client.user.id) {
+        if (typeof locks_data.sections != 'object') {
+            locks_data.sections = [];
+        }
+        if (typeof locks_data.editions != 'object') {
+            locks_data.editions = [];
+        }
+        let initial_sections_length = locks_data.sections.length;
+        locks_data.sections = locks_data.sections.filter(lock => {
+            return !(lock.user.id == msg.client.user.id && lock.manual === manual);
+        });
+        let initial_editions_length = locks_data.editions.length;
+        locks_data.editions = locks_data.editions.filter(lock => {
+            return !(lock.user.id == msg.client.user.id);
+        });
+        if (initial_sections_length != locks_data.sections.length || initial_editions_length != locks.editions.length) {
             actually_remove = true;
         }
     }
@@ -108,15 +162,16 @@ export function addEditionLock(msg) {
     console.log('Adding edition lock for user:', msg);
     let actually_add = false;
     let locks_data = getLocks();
-    if (msg && msg.data && msg.data.edition_id && msg.data.user && msg.data.user.id) {
+    if (msg && msg.data && msg.data.edition_id && msg.client && msg.client.user && msg.client.user.id) {
         let lock = JSON.parse(JSON.stringify(msg.data));
+        lock.user = JSON.parse(JSON.stringify(msg.client.user));
         lock.timestamp = msg.timestamp;
         if (typeof locks_data.editions != 'object') {
             locks_data.editions = [];
         }
         let lock_index = locks_data.editions.findIndex(l => l.edition_id == msg.data.edition_id);
         if (lock_index >= 0) {
-            if (locks_data.editions[lock_index].user.id == msg.data.user.id) {
+            if (locks_data.editions[lock_index].user.id == msg.client.user.id) {
                 locks_data.editions[lock_index] = lock;
                 actually_add = true;
             } else {
@@ -139,13 +194,13 @@ export function removeEditionLock(msg) {
     console.log('Removing edition lock for user:', msg);
     let actually_remove = false;
     let locks_data = getLocks();
-    if (msg && msg.data && msg.data.edition_id && msg.data.user && msg.data.user.id) {
+    if (msg && msg.data && msg.data.edition_id && msg.client && msg.client.user && msg.client.user.id) {
         if (typeof locks_data.editions != 'object') {
             locks_data.editions = [];
         }
         let initial_editions_length = locks_data.editions.length;
         locks_data.editions = locks_data.editions.filter(lock => {
-            return !(lock.user.id == msg.data.user.id && lock.edition_id == msg.data.edition_id);
+            return !(lock.user.id == msg.client.user.id && lock.edition_id == msg.data.edition_id);
         });
         if (initial_editions_length != locks_data.editions.length) {
             actually_remove = true;
@@ -178,6 +233,15 @@ export function handle(msg) {
             locks_data = removeEditionLock(msg);
         } else if (msg.type == 'remove_edition_section_locks') {
             locks_data = removeEditionSectionLocks(msg);
+        } else if (msg.type == 'remove_all_user_locks' && msg.data && typeof msg.data.manual == 'boolean') {
+            locks_data = removeAllUserLocks(msg, msg.data.manual);
+        } else if (msg.type == 'clear') {
+            locks_data = clearLocks(msg);
+        } else if (msg.type == 'remove_edition_locks') {
+            locks_data = removeEditionLocks(msg);
+        } else if (msg.type == 'remove_editions_and_edition_section_locks') {
+            locks_data = removeEditionLocks(msg);
+            locks_data = removeEditionSectionLocks(msg, msg.data.manual);
         }
         if (locks_data) {
             msg_to_broadcast = {
