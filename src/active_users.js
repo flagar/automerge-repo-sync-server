@@ -28,21 +28,24 @@ function purgeInactiveUsers(users_data) {
     return users_data;
 }
 
-export function addActiveUser(data) {
+export function addActiveUser(msg) {
     let active_users = getActiveUsers();
-    if (data && data.user && data.user.username && data.status === 'active') {
-        let user_index = active_users.findIndex(x => x.username == data.user.username);
+    if (msg && msg.data && msg.client && msg.client.user && msg.client.user.username && msg.data.status === 'active') {
+        let user_index = active_users.findIndex(x => x.username == msg.client.user.username);
         if (user_index >= 0) {
             if (typeof active_users[user_index].tabs != 'object') {
                 active_users[user_index].tabs = {};
             }
-            if (data.tab_id && !Object.keys(active_users[user_index].tabs).includes(data.tab_id)) {
-                active_users[user_index].tabs[data.tab_id] = data.edition_id;
+            if (msg.client.tab_id && !Object.keys(active_users[user_index].tabs).includes(msg.client.tab_id)) {
+                active_users[user_index].tabs[msg.client.tab_id] = msg.data.edition_id;
             }
+            active_users[user_index].last_ping = msg.data.last_ping;
         } else {
-            let active_user = JSON.parse(JSON.stringify(data.user));
+            let active_user = JSON.parse(JSON.stringify(msg.client.user));
+            active_user.first_ping = msg.data.first_ping;
+            active_user.last_ping = msg.data.last_ping;
             active_user.tabs = {};
-            active_user.tabs[data.tab_id] = data.edition_id;
+            active_user.tabs[msg.client.tab_id] = msg.data.edition_id;
             active_users.push(active_user);
         }
     }
@@ -52,11 +55,30 @@ export function addActiveUser(data) {
     return getActiveUsers();
 }
 
-export function removeActiveUser(userId) {
-    let activeUsers = getActiveUsers();
-    activeUsers = activeUsers.filter(u => u.id !== userId);
-    fs.writeFileSync(ACTIVE_USERS_FILE, JSON.stringify(activeUsers, null, 2));
+export function removeActiveUser(user_id) {
+    let active_users = getActiveUsers();
+    active_users = active_users.filter(u => u.id !== user_id);
+    fs.writeFileSync(ACTIVE_USERS_FILE, JSON.stringify(active_users, null, 2));
     return getActiveUsers();
+}
+
+export function removeActiveUserTab(tab_id) {
+    let active_users = getActiveUsers();
+    let active_user_index = active_users.findIndex(u => typeof u.tabs == 'object' && Object.keys(u.tabs).includes(tab_id));
+    if (active_user_index >= 0) {
+        console.log('Found active user with tab_id, removing tab_id from user tabs', active_users[active_user_index]);
+        delete active_users[active_user_index].tabs[tab_id];
+        if (Object.keys(active_users[active_user_index].tabs).length == 0) {
+            let user_id = active_users[active_user_index].id;
+            return removeActiveUser(user_id);
+        } else {
+            fs.writeFileSync(ACTIVE_USERS_FILE, JSON.stringify(active_users, null, 2));
+            return getActiveUsers();
+        }
+    } else {
+        console.log('No active user found with tab_id: ', tab_id);
+        return getActiveUsers();
+    }
 }
 
 export function clearActiveUsers() {
@@ -69,9 +91,9 @@ export function handle(msg) {
     if (msg && msg.context == 'active_users') {
         let active_users_data;
         if (msg.type == 'add') {
-            active_users_data = addActiveUser(msg.data);
-        } else if (msg.type == 'remove') {
-            active_users_data = removeActiveUser(msg.data.id);
+            active_users_data = addActiveUser(msg);
+        } else if (msg.type == 'remove' && msg.client && msg.client.tab_id) {
+            active_users_data = removeActiveUserTab(msg.client.tab_id);
         }
         if (active_users_data) {
             msg_to_broadcast = {
