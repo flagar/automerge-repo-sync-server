@@ -9,6 +9,8 @@ import os from "os"
 import { handle as activeUsersHandle } from "./active_users.js"
 import { handle as locksHandle, getLocks } from "./locks.js"
 import { handle as sectionsHandle } from "./sections.js"
+import { handle as notificationsHandle } from "./notifications.js"
+import { handle as editionsHandle } from "./editions.js"
 import cors from 'cors';
 
 // Configura CORS
@@ -161,6 +163,10 @@ export class Server {
             msg_to_broadcast = locksHandle(msg);
           } else if (msg.context == 'sections') {
             msg_to_broadcast = sectionsHandle(msg);
+          } else if (msg.context == 'notifications') {
+            msg_to_broadcast = notificationsHandle(msg);
+          } else if (msg.context == 'editions') {
+            msg_to_broadcast = editionsHandle(msg);
           }
           if (msg_to_broadcast) {
             console.log('Broadcasting message to clients: ', msg_to_broadcast);
