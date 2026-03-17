@@ -25,31 +25,36 @@ function purgeObsoleteSections(sections_data) {
     return sections_data;
 }
 
-export function addSection(msg) {
-    console.log('Adding section: ', msg);
-    let actually_add = false;
+export function updateSection(msg) {
+    console.log('Updating section: ', msg);
+    let actually_update = false;
     let sections_data = getSections();
+    let section_data;
     if (msg && msg.data && msg.data.edition_id && msg.data.section && msg.data.section.id > 0) {
-        let section_data = JSON.parse(JSON.stringify(msg.data));
+        section_data = JSON.parse(JSON.stringify(msg.data));
         section_data.timestamp = msg.timestamp;
         let section_index = sections_data.findIndex(s => s.edition_id == msg.data.edition_id && s.section && s.section.id == msg.data.section.id);
         if (section_index >= 0) {
             if (sections_data[section_index].timestamp < msg.timestamp) {
                 sections_data[section_index] = section_data;
-                actually_add = true;
+                actually_update = true;
             } else {
                 console.warn('Section ' + msg.data.section.id + ' is already up to date', sections_data[section_index]);
             }
         } else {
             sections_data.push(section_data);
-            actually_add = true;
+            actually_update = true;
         }
     }
-    if (actually_add) {
+    if (actually_update) {
         console.log('Writing sections data to file:', sections_data);
         fs.writeFileSync(SECTIONS_FILE, JSON.stringify(sections_data, null, 2));
     }
-    return getSections();
+    if (section_data) {
+        return section_data;
+    } else {
+        return getSections();
+    }
 }
 
 export function clearSections() {
@@ -61,16 +66,18 @@ export function handle(msg) {
     let msg_to_broadcast;
     if (msg && msg.context == 'sections') {
         console.log('Handling sections message: ', msg);
-        let sections_data;
-        if (msg.type == 'add') {
-            sections_data = addSection(msg);
+        let return_data;
+        if (msg.type == 'update') {
+            return_data = updateSection(msg); // actually single section data
         } else if (msg.type == 'clear') {
-            sections_data = clearSections(msg);
+            return_data = clearSections(msg);
+        } else if (msg.type == 'list') {
+            return_data = getSections();
         }
-        if (sections_data) {
+        if (return_data) {
             msg_to_broadcast = {
                 context: 'sections',
-                data: sections_data
+                data: return_data
             };
         }
     }
