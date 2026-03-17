@@ -25,25 +25,33 @@ function purgeObsoleteNotifications(notifications_data) {
     return notifications_data;
 }
 
-export function addNotification(msg) {
+export function addNotifications(msg) {
     console.log('Adding notification: ', msg);
     let actually_add = false;
     let notifications_data = getNotifications();
-    if (msg && msg.data) {
-        let notification_data = JSON.parse(JSON.stringify(msg.data));
-        notification_data.user = JSON.parse(JSON.stringify(msg.client.user));
-        let notification_index = notifications_data.findIndex(n => n.id == msg.data.id);
-        if (notification_index >= 0) {
-            if (notifications_data[notification_index].timestamp < msg.data.timestamp) {
-                notifications_data[notification_index] = notification_data;
-                actually_add = true;
-            } else {
-                console.warn('Notification ' + msg.data.notification.id + ' is already up to date', notifications_data[notification_index]);
-            }
+    if (msg && typeof msg.data == 'object') {
+        let nns;
+        if (msg.data.length > 0) {
+            nns = msg.data;
         } else {
-            notifications_data.push(notification_data);
-            actually_add = true;
+            nns = [msg.data];
         }
+        nns.forEach(nn => {
+            let notification_data = JSON.parse(JSON.stringify(nn));
+            //notification_data.user = { ...notification_data.user, ...JSON.parse(JSON.stringify(msg.client.user)) };
+            let notification_index = notifications_data.findIndex(n => n.id == nn.id);
+            if (notification_index >= 0) {
+                if (notifications_data[notification_index].timestamp < nn.timestamp) {
+                    notifications_data[notification_index] = notification_data;
+                    actually_add = true;
+                } else {
+                    console.warn('Notification ' + nn.id + ' is already up to date', notifications_data[notification_index]);
+                }
+            } else {
+                notifications_data.push(notification_data);
+                actually_add = true;
+            }
+        });
     }
     if (actually_add) {
         console.log('Writing notifications data to file:', notifications_data);
@@ -58,12 +66,20 @@ export function clearNotifications() {
 }
 
 export function handle(msg) {
+    let msg_to_broadcast;
     if (msg && msg.context == 'notifications') {
+        let notifications_data;
         if (msg.type == 'add') {
-            return addNotification(msg);
+            notifications_data = addNotifications(msg);
         } else if (msg.type == 'clear') {
-            return clearNotifications();
+            notifications_data = clearNotifications();
+        }
+        if (notifications_data) {
+            msg_to_broadcast = {
+                context: 'notifications',
+                data: notifications_data
+            };
         }
     }
-    return null;
+    return msg_to_broadcast;
 }

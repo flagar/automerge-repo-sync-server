@@ -6,7 +6,7 @@ import { Repo } from "@automerge/automerge-repo"
 import { WebSocketServerAdapter } from "@automerge/automerge-repo-network-websocket"
 import { NodeFSStorageAdapter } from "@automerge/automerge-repo-storage-nodefs"
 import os from "os"
-import { handle as activeUsersHandle } from "./active_users.js"
+import { handle as activeUsersHandle, removeActiveUserTab } from "./active_users.js"
 import { handle as locksHandle, getLocks } from "./locks.js"
 import { handle as sectionsHandle } from "./sections.js"
 import { handle as notificationsHandle } from "./notifications.js"
@@ -126,18 +126,50 @@ export class Server {
 
     this.#server.on("upgrade", (request, socket, head) => {
       const { url } = request;
-      if (url === "/automerge") {
+      const basic_url = url.replace(/\?.+/, '');
+      if (url == "/automerge") {
         this.#socket.handleUpgrade(request, socket, head, (socket) => {
           this.#socket.emit("connection", socket, request);
         });
-      } else if (url === "/ws") {
+      } else if (basic_url == "/ws") {
         this.hpews.handleUpgrade(request, socket, head, (socket) => {
+          if (url) {
+            console.log('Received upgrade request for URL: ', url);
+            const raw_b64data = new URL(url, 'http://x').searchParams.get('client_data');
+            if (raw_b64data) {
+              const b64_data = raw_b64data.replace(/-/g, '+').replace(/_/g, '/');
+              if (b64_data) {
+                const client_data = JSON.parse(Buffer.from(b64_data, 'base64').toString());
+                console.log('Received client data: ', client_data);
+                socket.client_data = client_data;
+              } else {
+                console.warn('No client data found in the URL query parameters');
+              }
+            } else {
+              console.warn('No client_data query parameter found in the URL');
+            }
+          } else {
+            console.warn('No URL found in the upgrade request');
+          }
           this.hpews.emit("connection", socket, request);
         });
       }
     });
 
     this.hpews.on("connection", /** @param {import('ws').WebSocket} ws */(ws) => {
+      ws.broadcast = (msg_to_broadcast) => {
+        console.log('Broadcasting message to clients: ', msg_to_broadcast);
+        //console.log(this.hpews.clients);
+        // Broadcast the message to all other connected clients
+        let i = 0;
+        this.hpews.clients.forEach((client) => {
+          //console.log('Checking client for broadcast: ', client);
+          if (client.readyState === 1) { // 1 means OPEN
+            console.log('Sending message to client ' + (i++));
+            client.send(JSON.stringify(msg_to_broadcast));
+          }
+        });
+      };
       console.log('Client connected to HPE WebSocket server');
       ws.send(JSON.stringify({ context: 'welcome', data: 'Welcome to the HPE WebSocket server!' }));
       //let active_users = getActiveUsers();
@@ -169,27 +201,20 @@ export class Server {
             msg_to_broadcast = editionsHandle(msg);
           }
           if (msg_to_broadcast) {
-            console.log('Broadcasting message to clients: ', msg_to_broadcast);
-            //console.log(this.hpews.clients);
-            // Broadcast the message to all other connected clients
-            let i = 0;
-            this.hpews.clients.forEach((client) => {
-              //console.log('Checking client for broadcast: ', client);
-              if (client.readyState === 1) { // 1 means OPEN
-                console.log('Sending message to client ' + (i++));
-                client.send(JSON.stringify(msg_to_broadcast));
-              }
-            });
+            ws.broadcast(msg_to_broadcast);
           }
         }
+      });
 
-        ws.addEventListener('close', () => {
-          console.log('Client disconnected from HPE WebSocket server');
-        });
+      ws.addEventListener('error', (error) => {
+        console.error('WebSocket error:', error);
+      });
 
-        ws.addEventListener('error', (error) => {
-          console.error('WebSocket error:', error);
-        });
+      ws.addEventListener('close', () => {
+        console.log('Client disconnected from HPE WebSocket server', ws.client_data);
+        if (ws.client_data && ws.client_data.tab_id) {
+          removeActiveUserTab(ws.client_data.tab_id);
+        }
       });
     });
 

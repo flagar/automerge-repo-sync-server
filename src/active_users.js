@@ -69,6 +69,7 @@ export function removeActiveUserTab(tab_id) {
         console.log('Found active user with tab_id, removing tab_id from user tabs', active_users[active_user_index]);
         delete active_users[active_user_index].tabs[tab_id];
         if (Object.keys(active_users[active_user_index].tabs).length == 0) {
+            console.log('No more active tabs for user, removing user from active users', active_users[active_user_index]);
             let user_id = active_users[active_user_index].id;
             return removeActiveUser(user_id);
         } else {
