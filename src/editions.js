@@ -70,10 +70,14 @@ export function handle(msg) {
             editions_data = clearEditions(msg);
         }
         if (editions_data) {
-            msg_to_broadcast = {
-                context: 'editions',
-                data: editions_data
-            };
+            if (editions_data.ready_to_broadcast === true && editions_data.msg_to_broadcast) {
+                msg_to_broadcast = editions_data.msg_to_broadcast;
+            } else {
+                msg_to_broadcast = {
+                    context: 'editions',
+                    data: editions_data
+                };
+            }
         }
     }
     return msg_to_broadcast;

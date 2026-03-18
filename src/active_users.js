@@ -2,7 +2,7 @@
 // it manages an active_users.json state file that is updated by get and post requests to the /active_users endpoint provided by the main app (Server)
 import fs from 'fs';
 import path from 'path';
-import { removeAllUserLocks } from "./locks.js"
+import { handle as locksHandle } from "./locks.js"
 
 const ACTIVE_USERS_FILE = path.join(process.cwd(), 'state/active_users.json');
 
@@ -73,14 +73,21 @@ export function removeActiveUserTab(msg) {
         if (Object.keys(active_users[active_user_index].tabs).length == 0) {
             console.log('No more active tabs for user, removing user from active users', active_users[active_user_index]);
             let user_id = active_users[active_user_index].id;
-            let updated_active_users = removeActiveUser(user_id);
+            let updated_active_users_r = removeActiveUser(user_id);
             console.log('Removing user locks');
-            removeAllUserLocks(msg, true);
-            removeAllUserLocks(msg, false);
-            return updated_active_users;
-        } else {
-            fs.writeFileSync(ACTIVE_USERS_FILE, JSON.stringify(active_users, null, 2));
-            return getActiveUsers();
+            let locks_r1 = locksHandle({ context: 'locks', type: 'remove_all_user_locks', data: { manual: true }, client: JSON.parse(JSON.stringify(msg.client)), timestamp: msg.timestamp });
+            let locks_r2 = locksHandle({ context: 'locks', type: 'remove_all_user_locks', data: { manual: false }, client: JSON.parse(JSON.stringify(msg.client)), timestamp: msg.timestamp });
+            let r = {
+                ready_to_broadcast: true,
+                msg_to_broadcast: [
+                    {
+                        context: 'active_users',
+                        data: updated_active_users_r
+                    }
+                ].concat(locks_r1).concat(locks_r2)
+            };
+            console.log('removeActiveUserTab return: ', r);
+            return r;
         }
     } else {
         console.log('No active user found with tab_id: ', tab_id);
@@ -103,10 +110,14 @@ export function handle(msg) {
             active_users_data = removeActiveUserTab(msg);
         }
         if (active_users_data) {
-            msg_to_broadcast = {
-                context: 'active_users',
-                data: active_users_data
-            };
+            if (active_users_data.ready_to_broadcast === true && active_users_data.msg_to_broadcast) {
+                msg_to_broadcast = active_users_data.msg_to_broadcast;
+            } else {
+                msg_to_broadcast = {
+                    context: 'active_users',
+                    data: active_users_data
+                };
+            }
         }
     }
     return msg_to_broadcast;

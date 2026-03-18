@@ -75,10 +75,14 @@ export function handle(msg) {
             return_data = getSections();
         }
         if (return_data) {
-            msg_to_broadcast = {
-                context: 'sections',
-                data: return_data
-            };
+            if (return_data.ready_to_broadcast === true && return_data.msg_to_broadcast) {
+                msg_to_broadcast = return_data.msg_to_broadcast;
+            } else {
+                msg_to_broadcast = {
+                    context: 'sections',
+                    data: return_data
+                };
+            }
         }
     }
     return msg_to_broadcast;

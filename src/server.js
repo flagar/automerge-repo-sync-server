@@ -157,16 +157,21 @@ export class Server {
     });
 
     this.hpews.on("connection", /** @param {import('ws').WebSocket} ws */(ws) => {
-      ws.broadcast = (msg_to_broadcast) => {
-        console.log('Broadcasting message to clients: ', msg_to_broadcast);
+      ws.transmit = (msg_to_send, user_id = null) => {
+        console.log('Broadcasting message to clients: ', msg_to_send);
         //console.log(this.hpews.clients);
         // Broadcast the message to all other connected clients
         let i = 0;
         this.hpews.clients.forEach((client) => {
           //console.log('Checking client for broadcast: ', client);
           if (client.readyState === 1) { // 1 means OPEN
-            console.log('Sending message to client ' + (i++));
-            client.send(JSON.stringify(msg_to_broadcast));
+            if (user_id === null) { // attempt to broadcast to all clients
+              console.log('Sending message to client ' + (i++), client.client_data);
+              client.send(JSON.stringify(msg_to_send));
+            } else if (user_id > 0 && client.client_data?.user?.id == user_id) { // attempt to send direct message to specific user_id
+              console.log('Sending direct message to user_id ' + user_id, client.client_data);
+              client.send(JSON.stringify(msg_to_send));
+            }
           }
         });
       };
@@ -188,20 +193,28 @@ export class Server {
           console.error('JSON parsing error for message:', raw_msg);
         }
         if (msg) {
-          let msg_to_broadcast;
+          let msgs_to_send;
           if (msg.context == 'active_users') {
-            msg_to_broadcast = activeUsersHandle(msg);
+            msgs_to_send = activeUsersHandle(msg);
           } else if (msg.context == 'locks') {
-            msg_to_broadcast = locksHandle(msg);
+            msgs_to_send = locksHandle(msg);
           } else if (msg.context == 'sections') {
-            msg_to_broadcast = sectionsHandle(msg);
+            msgs_to_send = sectionsHandle(msg);
           } else if (msg.context == 'notifications') {
-            msg_to_broadcast = notificationsHandle(msg);
+            msgs_to_send = notificationsHandle(msg);
           } else if (msg.context == 'editions') {
-            msg_to_broadcast = editionsHandle(msg);
+            msgs_to_send = editionsHandle(msg);
+          } else if (msg.context == 'direct' && msg.user_id) {
+            // direct message to specific user_id
+            ws.transmit(msg, msg.user_id);
           }
-          if (msg_to_broadcast) {
-            ws.broadcast(msg_to_broadcast);
+          if (msgs_to_send) {
+            if (typeof msgs_to_send != 'object' || msgs_to_send.length == undefined) {
+              msgs_to_send = [msgs_to_send];
+            }
+            msgs_to_send.forEach(msg_to_send => {
+              ws.transmit(msg_to_send);
+            });
           }
         }
       });

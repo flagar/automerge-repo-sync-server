@@ -244,10 +244,14 @@ export function handle(msg) {
             locks_data = removeEditionSectionLocks(msg, msg.data.manual);
         }
         if (locks_data) {
-            msg_to_broadcast = {
-                context: 'locks',
-                data: locks_data
-            };
+            if (locks_data.ready_to_broadcast === true && locks_data.msg_to_broadcast) {
+                msg_to_broadcast = locks_data.msg_to_broadcast;
+            } else {
+                msg_to_broadcast = {
+                    context: 'locks',
+                    data: locks_data
+                };
+            }
         }
     }
     return msg_to_broadcast;

@@ -75,10 +75,14 @@ export function handle(msg) {
             notifications_data = clearNotifications();
         }
         if (notifications_data) {
-            msg_to_broadcast = {
-                context: 'notifications',
-                data: notifications_data
-            };
+            if (notifications_data.ready_to_broadcast === true && notifications_data.msg_to_broadcast) {
+                msg_to_broadcast = notifications_data.msg_to_broadcast;
+            } else {
+                msg_to_broadcast = {
+                    context: 'notifications',
+                    data: notifications_data
+                };
+            }
         }
     }
     return msg_to_broadcast;
