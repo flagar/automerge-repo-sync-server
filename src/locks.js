@@ -147,7 +147,7 @@ export function removeAllUserLocks(msg, manual = true) {
         locks_data.editions = locks_data.editions.filter(lock => {
             return !(lock.user.id == msg.client.user.id);
         });
-        if (initial_sections_length != locks_data.sections.length || initial_editions_length != locks.editions.length) {
+        if (initial_sections_length != locks_data.sections.length || initial_editions_length != locks_data.editions.length) {
             actually_remove = true;
         }
     }

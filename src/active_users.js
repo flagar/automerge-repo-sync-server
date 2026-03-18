@@ -2,6 +2,7 @@
 // it manages an active_users.json state file that is updated by get and post requests to the /active_users endpoint provided by the main app (Server)
 import fs from 'fs';
 import path from 'path';
+import { removeAllUserLocks } from "./locks.js"
 
 const ACTIVE_USERS_FILE = path.join(process.cwd(), 'state/active_users.json');
 
@@ -62,7 +63,8 @@ export function removeActiveUser(user_id) {
     return getActiveUsers();
 }
 
-export function removeActiveUserTab(tab_id) {
+export function removeActiveUserTab(msg) {
+    let tab_id = msg.client.tab_id;
     let active_users = getActiveUsers();
     let active_user_index = active_users.findIndex(u => typeof u.tabs == 'object' && Object.keys(u.tabs).includes(tab_id));
     if (active_user_index >= 0) {
@@ -71,7 +73,11 @@ export function removeActiveUserTab(tab_id) {
         if (Object.keys(active_users[active_user_index].tabs).length == 0) {
             console.log('No more active tabs for user, removing user from active users', active_users[active_user_index]);
             let user_id = active_users[active_user_index].id;
-            return removeActiveUser(user_id);
+            let updated_active_users = removeActiveUser(user_id);
+            console.log('Removing user locks');
+            removeAllUserLocks(msg, true);
+            removeAllUserLocks(msg, false);
+            return updated_active_users;
         } else {
             fs.writeFileSync(ACTIVE_USERS_FILE, JSON.stringify(active_users, null, 2));
             return getActiveUsers();
@@ -94,7 +100,7 @@ export function handle(msg) {
         if (msg.type == 'add') {
             active_users_data = addActiveUser(msg);
         } else if (msg.type == 'remove' && msg.client && msg.client.tab_id) {
-            active_users_data = removeActiveUserTab(msg.client.tab_id);
+            active_users_data = removeActiveUserTab(msg);
         }
         if (active_users_data) {
             msg_to_broadcast = {

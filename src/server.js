@@ -213,7 +213,7 @@ export class Server {
       ws.addEventListener('close', () => {
         console.log('Client disconnected from HPE WebSocket server', ws.client_data);
         if (ws.client_data && ws.client_data.tab_id) {
-          removeActiveUserTab(ws.client_data.tab_id);
+          removeActiveUserTab({ client: ws.client_data });
         }
       });
     });
