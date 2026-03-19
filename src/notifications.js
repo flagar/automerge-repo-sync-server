@@ -2,6 +2,7 @@
 // it manages a notifications.json state file that is updated by get and post requests to the /notifications endpoint provided by the main app (Server)
 import fs from 'fs';
 import path from 'path';
+import { getFirstUserPing } from "./active_users.js";
 const NOTIFICATIONS_FILE = path.join(process.cwd(), 'state/notifications.json');
 
 export function getNotifications() {
@@ -17,9 +18,20 @@ export function getNotifications() {
 
 function purgeObsoleteNotifications(notifications_data) {
     if (Array.isArray(notifications_data) && notifications_data.length > 0) {
-        notifications_data = notifications_data.filter(lock => {
-            return true; // for now we keep all notifications, but we could implement a purge mechanism
-        });
+        const first_user_ping = getFirstUserPing();
+        if (first_user_ping) {
+            // purge notifications that are older than the first user ping (assuming they are obsolete for all users)
+            notifications_data = notifications_data.filter(notification => {
+                return new Date(notification.timestamp) >= new Date(first_user_ping);
+            });
+        } else {
+            // we could also implement a max age for notifications, e.g. 24 hours
+            const max_age_interval = 24 * 60 * 60 * 1000; // 24 hours
+            const now = new Date();
+            notifications_data = notifications_data.filter(notification => {
+                return (now - new Date(notification.timestamp)) < max_age_interval;
+            });
+        }
     }
     return notifications_data;
 }

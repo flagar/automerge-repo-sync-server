@@ -17,8 +17,11 @@ export function getSections() {
 
 function purgeObsoleteSections(sections_data) {
     if (Array.isArray(sections_data) && sections_data.length > 0) {
-        sections_data = sections_data.filter(lock => {
-            return true; // for now we keep all sections, but we could implement a purge mechanism
+        // purge sections not updated for more than 72 hours (3 days)
+        const now = new Date();
+        const max_inactive_interval = 72 * 60 * 60 * 1000; // 72 hours
+        sections_data = sections_data.filter(section => {
+            return (now - new Date(section.timestamp)) < max_inactive_interval;
         });
     }
     return sections_data;

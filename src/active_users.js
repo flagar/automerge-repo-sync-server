@@ -102,6 +102,16 @@ export function isUserActive(value, key = 'id') {
     return active_users.some(u => u[key] === value);
 }
 
+export function getFirstUserPing() {
+    let active_users = getActiveUsers();
+    if (active_users.length > 0) {
+        let first_ping = active_users.reduce((min, u) => u.first_ping < min ? u.first_ping : min, active_users[0].first_ping);
+        return first_ping;
+    } else {
+        return null;
+    }
+}
+
 export function clearActiveUsers() {
     fs.writeFileSync(ACTIVE_USERS_FILE, JSON.stringify([], null, 2));
     return [];

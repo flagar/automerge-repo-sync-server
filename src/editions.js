@@ -17,8 +17,11 @@ export function getEditions() {
 
 function purgeObsoleteEditions(editions_data) {
     if (Array.isArray(editions_data) && editions_data.length > 0) {
-        editions_data = editions_data.filter(lock => {
-            return true; // for now we keep all editions, but we could implement a purge mechanism
+        // purge editions not updated for more than 72 hours (3 days)
+        const now = new Date();
+        const max_inactive_interval = 72 * 60 * 60 * 1000; // 72 hours
+        editions_data = editions_data.filter(edition => {
+            return (now - new Date(edition.timestamp)) < max_inactive_interval;
         });
     }
     return editions_data;
