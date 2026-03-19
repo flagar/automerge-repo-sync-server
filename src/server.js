@@ -157,6 +157,7 @@ export class Server {
     });
 
     this.hpews.on("connection", /** @param {import('ws').WebSocket} ws */(ws) => {
+      ws.setMaxListeners(100); // increase the maximum number of listeners to prevent memory leak warnings in case of many clients
       ws.transmit = (msg_to_send, user_id = null) => {
         console.log('Broadcasting message to clients: ', msg_to_send);
         //console.log(this.hpews.clients);
