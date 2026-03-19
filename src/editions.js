@@ -2,7 +2,6 @@
 // it manages an editions.json state file that is updated by get and post requests to the /editions endpoint provided by the main app (Server)
 import fs from 'fs';
 import path from 'path';
-
 const EDITIONS_FILE = path.join(process.cwd(), 'state/editions.json');
 
 export function getEditions() {

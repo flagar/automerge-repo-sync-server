@@ -3,7 +3,6 @@
 import fs from 'fs';
 import path from 'path';
 import { handle as locksHandle } from "./locks.js"
-
 const ACTIVE_USERS_FILE = path.join(process.cwd(), 'state/active_users.json');
 
 export function getActiveUsers() {
@@ -63,7 +62,7 @@ export function removeActiveUser(user_id) {
     return getActiveUsers();
 }
 
-export function removeActiveUserTab(msg) {
+export function removeActiveUserTab(msg, ws_instance) {
     let tab_id = msg.client.tab_id;
     let active_users = getActiveUsers();
     let active_user_index = active_users.findIndex(u => typeof u.tabs == 'object' && Object.keys(u.tabs).includes(tab_id));
@@ -74,20 +73,23 @@ export function removeActiveUserTab(msg) {
             console.log('No more active tabs for user, removing user from active users', active_users[active_user_index]);
             let user_id = active_users[active_user_index].id;
             let updated_active_users_r = removeActiveUser(user_id);
-            console.log('Removing user locks');
-            let locks_r1 = locksHandle({ context: 'locks', type: 'remove_all_user_locks', data: { manual: true }, client: JSON.parse(JSON.stringify(msg.client)), timestamp: msg.timestamp });
-            let locks_r2 = locksHandle({ context: 'locks', type: 'remove_all_user_locks', data: { manual: false }, client: JSON.parse(JSON.stringify(msg.client)), timestamp: msg.timestamp });
-            let r = {
-                ready_to_broadcast: true,
-                msg_to_broadcast: [
-                    {
-                        context: 'active_users',
-                        data: updated_active_users_r
-                    }
-                ].concat(locks_r1).concat(locks_r2)
-            };
-            console.log('removeActiveUserTab return: ', r);
-            return r;
+            console.log('Scheduling user locks removal attempt after 60 seconds');
+            setTimeout(() => {
+                locksHandle({ context: 'locks', type: 'remove_all_user_locks_if_inactive', client: JSON.parse(JSON.stringify(msg.client)), timestamp: msg.timestamp }, ws_instance);
+            }, 60 * 1000);
+            //let locks_r1 = locksHandle({ context: 'locks', type: 'remove_all_user_locks', data: { manual: true }, client: JSON.parse(JSON.stringify(msg.client)), timestamp: msg.timestamp }, ws_instance);
+            //let locks_r2 = locksHandle({ context: 'locks', type: 'remove_all_user_locks', data: { manual: false }, client: JSON.parse(JSON.stringify(msg.client)), timestamp: msg.timestamp }, ws_instance);
+            // let r = {
+            //     ready_to_broadcast: true,
+            //     msg_to_broadcast: [
+            //         {
+            //             context: 'active_users',
+            //             data: updated_active_users_r
+            //         }
+            //     ].concat(locks_r1).concat(locks_r2)
+            // };
+            // console.log('removeActiveUserTab return: ', r);
+            return updated_active_users_r;
         }
     } else {
         console.log('No active user found with tab_id: ', tab_id);
@@ -95,19 +97,24 @@ export function removeActiveUserTab(msg) {
     }
 }
 
+export function isUserActive(value, key = 'id') {
+    let active_users = getActiveUsers();
+    return active_users.some(u => u[key] === value);
+}
+
 export function clearActiveUsers() {
     fs.writeFileSync(ACTIVE_USERS_FILE, JSON.stringify([], null, 2));
     return [];
 }
 
-export function handle(msg) {
+export function handle(msg, ws) {
     let msg_to_broadcast;
     if (msg && msg.context == 'active_users') {
         let active_users_data;
         if (msg.type == 'add') {
             active_users_data = addActiveUser(msg);
         } else if (msg.type == 'remove' && msg.client && msg.client.tab_id) {
-            active_users_data = removeActiveUserTab(msg);
+            active_users_data = removeActiveUserTab(msg, ws);
         }
         if (active_users_data) {
             if (active_users_data.ready_to_broadcast === true && active_users_data.msg_to_broadcast) {

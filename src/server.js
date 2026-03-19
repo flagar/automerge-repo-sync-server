@@ -196,9 +196,9 @@ export class Server {
         if (msg) {
           let msgs_to_send;
           if (msg.context == 'active_users') {
-            msgs_to_send = activeUsersHandle(msg);
+            msgs_to_send = activeUsersHandle(msg, ws);
           } else if (msg.context == 'locks') {
-            msgs_to_send = locksHandle(msg);
+            msgs_to_send = locksHandle(msg, ws);
           } else if (msg.context == 'sections') {
             msgs_to_send = sectionsHandle(msg);
           } else if (msg.context == 'notifications') {
@@ -227,7 +227,7 @@ export class Server {
       ws.addEventListener('close', () => {
         console.log('Client disconnected from HPE WebSocket server', ws.client_data);
         if (ws.client_data && ws.client_data.tab_id) {
-          removeActiveUserTab({ client: ws.client_data });
+          removeActiveUserTab({ client: ws.client_data }, ws);
         }
       });
     });

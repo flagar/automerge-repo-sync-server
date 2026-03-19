@@ -2,7 +2,7 @@
 // it manages an locks.json state file that is updated by get and post requests to the /locks endpoint provided by the main app (Server)
 import fs from 'fs';
 import path from 'path';
-
+import { isUserActive } from './active_users.js';
 const LOCKS_FILE = path.join(process.cwd(), 'state/locks.json');
 
 export function getLocks() {
@@ -158,6 +158,19 @@ export function removeAllUserLocks(msg, manual = true) {
     return getLocks();
 }
 
+export function removeAllUserLocksIfInactiveAndBroadcast(user_id, ws_instance) {
+    console.log('Removing all edition and section locks for user if inactive:', user_id);
+    if (user_id > 0 && isUserActive(user_id) === false) {
+        console.log('User is inactive, removing locks');
+        removeAllUserLocks({ client: { user: { id: user_id } } }, false);
+        let updated_locks = removeAllUserLocks({ client: { user: { id: user_id } } }, true);
+        ws_instance.transmit({
+            context: 'locks',
+            data: updated_locks
+        });
+    }
+}
+
 export function addEditionLock(msg) {
     console.log('Adding edition lock for user:', msg);
     let actually_add = false;
@@ -218,7 +231,7 @@ export function clearLocks() {
     return {};
 }
 
-export function handle(msg) {
+export function handle(msg, ws) {
     let msg_to_broadcast;
     if (msg && msg.context == 'locks') {
         console.log('Handling locks message: ', msg);
@@ -242,6 +255,8 @@ export function handle(msg) {
         } else if (msg.type == 'remove_editions_and_edition_section_locks') {
             locks_data = removeEditionLocks(msg);
             locks_data = removeEditionSectionLocks(msg, msg.data.manual);
+        } else if (msg.type == 'remove_all_user_locks_if_inactive') {
+            removeAllUserLocksIfInactiveAndBroadcast(msg.client?.user?.id, ws);
         }
         if (locks_data) {
             if (locks_data.ready_to_broadcast === true && locks_data.msg_to_broadcast) {

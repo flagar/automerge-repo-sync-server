@@ -2,7 +2,6 @@
 // it manages an sections.json state file that is updated by get and post requests to the /sections endpoint provided by the main app (Server)
 import fs from 'fs';
 import path from 'path';
-
 const SECTIONS_FILE = path.join(process.cwd(), 'state/sections.json');
 
 export function getSections() {

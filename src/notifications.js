@@ -2,7 +2,6 @@
 // it manages a notifications.json state file that is updated by get and post requests to the /notifications endpoint provided by the main app (Server)
 import fs from 'fs';
 import path from 'path';
-
 const NOTIFICATIONS_FILE = path.join(process.cwd(), 'state/notifications.json');
 
 export function getNotifications() {
