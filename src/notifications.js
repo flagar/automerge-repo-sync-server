@@ -22,7 +22,14 @@ function purgeObsoleteNotifications(notifications_data) {
         if (first_user_ping) {
             // purge notifications that are older than the first user ping (assuming they are obsolete for all users)
             notifications_data = notifications_data.filter(notification => {
-                return new Date(notification.timestamp) >= new Date(first_user_ping);
+                let notification_timestamp;
+                // if notification timestamp is integer, convert it to date, otherwise assume it's already a date string
+                if (typeof notification.timestamp == 'number') {
+                    notification_timestamp = new Date(notification.timestamp * 1000);
+                } else {
+                    notification_timestamp = new Date(notification.timestamp);
+                }
+                return notification_timestamp >= new Date(first_user_ping);
             });
         } else {
             // we could also implement a max age for notifications, e.g. 24 hours

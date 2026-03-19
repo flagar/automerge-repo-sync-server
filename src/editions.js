@@ -21,7 +21,14 @@ function purgeObsoleteEditions(editions_data) {
         const now = new Date();
         const max_inactive_interval = 72 * 60 * 60 * 1000; // 72 hours
         editions_data = editions_data.filter(edition => {
-            return (now - new Date(edition.timestamp)) < max_inactive_interval;
+            let edition_timestamp;
+            // if edition timestamp is integer, convert it to date, otherwise assume it's already a date string
+            if (typeof edition.timestamp == 'number') {
+                edition_timestamp = new Date(edition.timestamp * 1000);
+            } else {
+                edition_timestamp = new Date(edition.timestamp);
+            }
+            return (now - edition_timestamp) < max_inactive_interval;
         });
     }
     return editions_data;

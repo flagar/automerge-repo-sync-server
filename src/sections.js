@@ -21,7 +21,14 @@ function purgeObsoleteSections(sections_data) {
         const now = new Date();
         const max_inactive_interval = 72 * 60 * 60 * 1000; // 72 hours
         sections_data = sections_data.filter(section => {
-            return (now - new Date(section.timestamp)) < max_inactive_interval;
+            let section_timestamp;
+            // if section timestamp is integer, convert it to date, otherwise assume it's already a date string
+            if (typeof section.timestamp == 'number') {
+                section_timestamp = new Date(section.timestamp * 1000);
+            } else {
+                section_timestamp = new Date(section.timestamp);
+            }
+            return (now - section_timestamp) < max_inactive_interval;
         });
     }
     return sections_data;
