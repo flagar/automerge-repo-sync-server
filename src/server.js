@@ -6,7 +6,7 @@ import { Repo } from "@automerge/automerge-repo"
 import { WebSocketServerAdapter } from "@automerge/automerge-repo-network-websocket"
 import { NodeFSStorageAdapter } from "@automerge/automerge-repo-storage-nodefs"
 import os from "os"
-import { handle as activeUsersHandle, removeActiveUserTab } from "./active_users.js"
+import { handle as activeUsersHandle, getActiveUsers, removeActiveUserTab } from "./active_users.js"
 import { handle as locksHandle, getLocks } from "./locks.js"
 import { handle as sectionsHandle } from "./sections.js"
 import { handle as notificationsHandle } from "./notifications.js"
@@ -105,12 +105,12 @@ export class Server {
       } else {
         res.status(400).json({ message: "Invalid user ID" });
       }
-    });
+    });*/
 
     app.get("/active_users", (req, res) => {
       const activeUsers = getActiveUsers();
       res.status(200).json(activeUsers);
-    });*/
+    });
 
     this.#server = app.listen(PORT, () => {
       console.log(`Listening on port ${PORT}`)
