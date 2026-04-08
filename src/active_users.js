@@ -22,7 +22,12 @@ function purgeInactiveUsers(users_data) {
         const now = new Date();
         const max_inactive_interval = 60 * 1000; // 60 seconds
         users_data = users_data.filter(user => {
-            return (now - new Date(user.last_ping)) < max_inactive_interval;
+            if (!user.last_ping) {
+                console.warn('User has no last_ping, considering active:', user);
+                return true;
+            } else {
+                return (now - new Date(user.last_ping)) < max_inactive_interval;
+            }
         });
     }
     return users_data;
@@ -30,7 +35,7 @@ function purgeInactiveUsers(users_data) {
 
 export function addActiveUser(msg) {
     let active_users = getActiveUsers();
-    if (msg && msg.data && msg.client && msg.client.user && msg.client.user.username && msg.data.status === 'active') {
+    if (msg && msg.data && msg.client && msg.client.user && msg.client.user.username/* && msg.data.status === 'active'*/) {
         let user_index = active_users.findIndex(x => x.username == msg.client.user.username);
         if (user_index >= 0) {
             if (typeof active_users[user_index].tabs != 'object') {

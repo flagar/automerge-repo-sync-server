@@ -2,7 +2,7 @@
 // it manages an locks.json state file that is updated by get and post requests to the /locks endpoint provided by the main app (Server)
 import fs from 'fs';
 import path from 'path';
-import { isUserActive } from './active_users.js';
+import { isUserActive, addActiveUser } from './active_users.js';
 const LOCKS_FILE = path.join(process.cwd(), 'state/locks.json');
 
 export function getLocks() {
@@ -233,15 +233,18 @@ export function clearLocks() {
 
 export function handle(msg, ws) {
     let msg_to_broadcast;
+    let active_users_updated;
     if (msg && msg.context == 'locks') {
         console.log('Handling locks message: ', msg);
         let locks_data;
         if (msg.type == 'add_section_lock') {
             locks_data = addSectionLock(msg);
+            active_users_updated = addActiveUser(msg);
         } else if (msg.type == 'remove_section_lock') {
             locks_data = removeSectionLock(msg);
         } else if (msg.type == 'add_edition_lock') {
             locks_data = addEditionLock(msg);
+            active_users_updated = addActiveUser(msg);
         } else if (msg.type == 'remove_edition_lock') {
             locks_data = removeEditionLock(msg);
         } else if (msg.type == 'remove_edition_section_locks') {
@@ -269,5 +272,12 @@ export function handle(msg, ws) {
             }
         }
     }
-    return msg_to_broadcast;
+    if (active_users_updated) {
+        return [{
+            context: 'active_users',
+            data: active_users_updated
+        }, msg_to_broadcast];
+    } else {
+        return msg_to_broadcast;
+    }
 }
