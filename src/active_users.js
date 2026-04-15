@@ -18,6 +18,7 @@ export function getActiveUsers() {
 
 function purgeInactiveUsers(users_data) {
     if (Array.isArray(users_data) && users_data.length > 0) {
+        let original_length = users_data.length;
         // purge not active users (no ping for more than 60 seconds)
         const now = new Date();
         const max_inactive_interval = 60 * 1000; // 60 seconds
@@ -29,6 +30,10 @@ function purgeInactiveUsers(users_data) {
                 return (now - new Date(user.last_ping)) < max_inactive_interval;
             }
         });
+        if (users_data.length < original_length) {
+            console.log(`Purged ${original_length - users_data.length} inactive users from active users data`);
+            fs.writeFileSync(ACTIVE_USERS_FILE, JSON.stringify(users_data, null, 2));
+        }
     }
     return users_data;
 }
@@ -36,6 +41,7 @@ function purgeInactiveUsers(users_data) {
 export function addActiveUser(msg) {
     let active_users = getActiveUsers();
     if (msg && msg.data && msg.client && msg.client.user && msg.client.user.username/* && msg.data.status === 'active'*/) {
+        let last_ping = msg.data.last_ping ? new Date(msg.data.last_ping) : new Date();
         let user_index = active_users.findIndex(x => x.username == msg.client.user.username);
         if (user_index >= 0) {
             if (typeof active_users[user_index].tabs != 'object') {
@@ -44,11 +50,11 @@ export function addActiveUser(msg) {
             if (msg.client.tab_id && !Object.keys(active_users[user_index].tabs).includes(msg.client.tab_id)) {
                 active_users[user_index].tabs[msg.client.tab_id] = msg.data.edition_id;
             }
-            active_users[user_index].last_ping = msg.data.last_ping;
+            active_users[user_index].last_ping = last_ping;
         } else {
             let active_user = JSON.parse(JSON.stringify(msg.client.user));
-            active_user.first_ping = msg.data.first_ping;
-            active_user.last_ping = msg.data.last_ping;
+            active_user.first_ping = msg.data.first_ping ? new Date(msg.data.first_ping) : new Date();
+            active_user.last_ping = last_ping;
             active_user.tabs = {};
             active_user.tabs[msg.client.tab_id] = msg.data.edition_id;
             active_users.push(active_user);

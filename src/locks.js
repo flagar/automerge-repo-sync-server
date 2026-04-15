@@ -17,10 +17,31 @@ export function getLocks() {
 }
 
 function purgeObsoleteLocks(locks_data) {
-    if (Array.isArray(locks_data) && locks_data.length > 0) {
-        locks_data = locks_data.filter(lock => {
-            return true; // for now we keep all locks, but we could implement a purge mechanism
-        });
+    let locks_updated = false;
+    for (let lock_type in locks_data) {
+        if (Array.isArray(locks_data[lock_type]) && locks_data[lock_type].length > 0) {
+            console.log('Purging obsolete locks for lock type ' + lock_type);
+            let original_length = locks_data[lock_type].length;
+            locks_data[lock_type] = locks_data[lock_type].filter(lock => {
+                // purge locks that are older than 24 hours and whose user is not active
+                console.log('Checking lock for user ' + lock.user.id + ' with timestamp ' + lock.timestamp);
+                if (lock.timestamp && lock.user && lock.user.id) {
+                    const lock_age = new Date() - new Date(lock.timestamp);
+                    const max_lock_age = 24 * 60 * 60 * 1000; // 24 hours
+                    if (lock_age > max_lock_age && isUserActive(lock.user.id) === false) {
+                        return false;
+                    }
+                }
+                return true;
+            });
+            if (locks_data[lock_type].length < original_length) {
+                console.log(`Purged ${original_length - locks_data[lock_type].length} obsolete locks for lock type ${lock_type}`);
+                locks_updated = true;
+            }
+        }
+    }
+    if (locks_updated) {
+        fs.writeFileSync(LOCKS_FILE, JSON.stringify(locks_data, null, 2));
     }
     return locks_data;
 }
